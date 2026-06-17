@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { Page } from 'playwright';
+import { Page, BrowserContext } from 'playwright';
 import { ContentExtractionOptions, SearchResult } from './types.js';
 import { cleanText, getWordCount, getContentPreview, generateTimestamp, isPdfUrl } from './utils.js';
 import { BrowserPool } from './browser-pool.js';
@@ -93,7 +93,8 @@ export class EnhancedContentExtractor {
     
     const browser = await this.browserPool.getBrowser();
     const browserType = this.browserPool.getLastUsedBrowserType();
-    
+    let context: BrowserContext | undefined;
+
     try {
       // Create context options based on browser capabilities
       const baseContextOptions = {
@@ -116,7 +117,7 @@ export class EnhancedContentExtractor {
         : { ...baseContextOptions, isMobile: Math.random() > 0.8 };
 
       // Create a new context for each request (isolation)
-      const context = await browser.newContext(contextOptions);
+      context = await browser.newContext(contextOptions);
 
       // Add stealth scripts to avoid detection
       await context.addInitScript(() => {
@@ -180,9 +181,10 @@ export class EnhancedContentExtractor {
         if (errorMessage.includes('ERR_HTTP2_PROTOCOL_ERROR') || errorMessage.includes('HTTP2')) {
           console.log(`[BrowserExtractor] HTTP/2 error detected, trying with HTTP/1.1`);
           
-          // Create a new context with HTTP/1.1 preference
+          // Create a new context with HTTP/1.1 preference (reuse `context` so the
+          // finally block always closes the live context — avoids leaking it)
           await context.close();
-          const http1Context = await browser.newContext({
+          context = await browser.newContext({
             userAgent: this.getRandomUserAgent(),
             viewport: this.getRandomViewport(),
             locale: 'en-US',
@@ -192,8 +194,8 @@ export class EnhancedContentExtractor {
               'Upgrade-Insecure-Requests': '1'
             }
           });
-          
-          const http1Page = await http1Context.newPage();
+
+          const http1Page = await context.newPage();
           
           // Disable HTTP/2 by intercepting requests
           await http1Page.route('**/*', (route) => {
@@ -213,7 +215,6 @@ export class EnhancedContentExtractor {
           // Quick content extraction
           const html = await http1Page.content();
           const content = this.parseContent(html);
-          await http1Context.close();
           return content;
         } else {
           throw gotoError;
@@ -239,12 +240,19 @@ export class EnhancedContentExtractor {
       const html = await page.content();
       const content = this.parseContent(html);
 
-      await context.close();
       return content;
 
     } catch (error) {
       console.error(`[BrowserExtractor] Browser extraction failed for ${url}:`, error);
       throw error;
+    } finally {
+      // Always close the context, even on error — otherwise it leaks inside the
+      // pooled (long-lived) browser and memory grows with every failed fetch.
+      if (context) {
+        try {
+          await context.close();
+        } catch { /* context may already be closed */ }
+      }
     }
   }
 
