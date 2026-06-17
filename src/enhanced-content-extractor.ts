@@ -10,6 +10,7 @@ export class EnhancedContentExtractor {
   private readonly maxContentLength: number;
   private browserPool: BrowserPool;
   private fallbackThreshold: number;
+  private axiosOnly: boolean;
 
   constructor() {
     this.defaultTimeout = parseInt(process.env.DEFAULT_TIMEOUT || '6000', 10);
@@ -26,6 +27,7 @@ export class EnhancedContentExtractor {
     
     this.browserPool = new BrowserPool();
     this.fallbackThreshold = parseInt(process.env.BROWSER_FALLBACK_THRESHOLD || '3', 10);
+    this.axiosOnly = process.env.WEB_SEARCH_AXIOS_ONLY === 'true';  // never fall back to a browser
     
     console.log(`[EnhancedContentExtractor] Configuration: timeout=${this.defaultTimeout}, maxContentLength=${this.maxContentLength}, fallbackThreshold=${this.fallbackThreshold}`);
   }
@@ -44,7 +46,7 @@ export class EnhancedContentExtractor {
       console.log(`[EnhancedContentExtractor] Axios failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       // Check if this looks like a case where browser would help
-      if (this.shouldUseBrowser(error, url)) {
+      if (!this.axiosOnly && this.shouldUseBrowser(error, url)) {
         console.log(`[EnhancedContentExtractor] Falling back to headless browser for: ${url}`);
         try {
           const content = await this.extractWithBrowser(options);

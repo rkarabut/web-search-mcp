@@ -29,15 +29,22 @@ export class SearchEngine {
         const qualityThreshold = parseFloat(process.env.RELEVANCE_THRESHOLD || '0.3');
         const forceMultiEngine = process.env.FORCE_MULTI_ENGINE_SEARCH === 'true';
         const debugBrowsers = process.env.DEBUG_BROWSER_LIFECYCLE === 'true';
-        
-        console.log(`[SearchEngine] Quality checking: ${enableQualityCheck}, threshold: ${qualityThreshold}, multi-engine: ${forceMultiEngine}, debug: ${debugBrowsers}`);
+        const axiosOnly = process.env.WEB_SEARCH_AXIOS_ONLY === 'true';
 
-        // Try multiple approaches to get search results, starting with most reliable
-        const approaches = [
-          { method: this.tryBrowserBingSearch.bind(this), name: 'Browser Bing' },
-          { method: this.tryBrowserBraveSearch.bind(this), name: 'Browser Brave' },
-          { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' }
-        ];
+        console.log(`[SearchEngine] Quality checking: ${enableQualityCheck}, threshold: ${qualityThreshold}, multi-engine: ${forceMultiEngine}, axiosOnly: ${axiosOnly}, debug: ${debugBrowsers}`);
+
+        // Try multiple approaches to get search results, starting with most reliable.
+        // WEB_SEARCH_AXIOS_ONLY=true skips the Playwright (Bing/Brave) engines entirely
+        // and uses only the axios DuckDuckGo path (no browser launches).
+        const approaches = axiosOnly
+          ? [
+              { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' }
+            ]
+          : [
+              { method: this.tryBrowserBingSearch.bind(this), name: 'Browser Bing' },
+              { method: this.tryBrowserBraveSearch.bind(this), name: 'Browser Brave' },
+              { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' }
+            ];
         
         let bestResults: SearchResult[] = [];
         let bestEngine = 'None';
