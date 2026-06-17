@@ -29,15 +29,28 @@ export class SearchEngine {
         const qualityThreshold = parseFloat(process.env.RELEVANCE_THRESHOLD || '0.3');
         const forceMultiEngine = process.env.FORCE_MULTI_ENGINE_SEARCH === 'true';
         const debugBrowsers = process.env.DEBUG_BROWSER_LIFECYCLE === 'true';
-        
-        console.log(`[SearchEngine] Quality checking: ${enableQualityCheck}, threshold: ${qualityThreshold}, multi-engine: ${forceMultiEngine}, debug: ${debugBrowsers}`);
+        // Engine precedence is configurable via SEARCH_ENGINE_ORDER (comma-separated
+        // keys: bing,brave,duckduckgo). Unknown keys are ignored; the default
+        // preserves the original Bing > Brave > DuckDuckGo order.
+        const engineOrder = (process.env.SEARCH_ENGINE_ORDER || 'bing,brave,duckduckgo')
+          .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
-        // Try multiple approaches to get search results, starting with most reliable
-        const approaches = [
-          { method: this.tryBrowserBingSearch.bind(this), name: 'Browser Bing' },
-          { method: this.tryBrowserBraveSearch.bind(this), name: 'Browser Brave' },
-          { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' }
-        ];
+        console.log(`[SearchEngine] Quality checking: ${enableQualityCheck}, threshold: ${qualityThreshold}, multi-engine: ${forceMultiEngine}, order: ${engineOrder.join('>')}, debug: ${debugBrowsers}`);
+
+        // Build the ordered list of search approaches from the configured order.
+        type Approach = { method: (q: string, n: number, t: number) => Promise<SearchResult[]>; name: string };
+        const engineRegistry: Record<string, Approach> = {
+          bing: { method: this.tryBrowserBingSearch.bind(this), name: 'Browser Bing' },
+          brave: { method: this.tryBrowserBraveSearch.bind(this), name: 'Browser Brave' },
+          duckduckgo: { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' },
+        };
+        const approaches: Approach[] = engineOrder
+          .map((key) => engineRegistry[key])
+          .filter((a): a is Approach => Boolean(a));
+        if (approaches.length === 0) {
+          console.warn(`[SearchEngine] SEARCH_ENGINE_ORDER had no valid engines; falling back to DuckDuckGo`);
+          approaches.push(engineRegistry.duckduckgo);
+        }
         
         let bestResults: SearchResult[] = [];
         let bestEngine = 'None';
@@ -71,8 +84,10 @@ export class SearchEngine {
                 return { results, engine: approach.name };
               }
               
-              // If quality is acceptable and this isn't Bing (first engine), return
-              if (qualityScore >= qualityThreshold && approach.name !== 'Browser Bing' && !forceMultiEngine) {
+              // If quality is acceptable and this isn't the first (top-precedence)
+              // engine, return. The top engine is held to the higher 0.8 bar above,
+              // so a second engine can win on merely-acceptable quality.
+              if (qualityScore >= qualityThreshold && i !== 0 && !forceMultiEngine) {
                 console.log(`[SearchEngine] Good quality results from ${approach.name}, using as primary`);
                 return { results, engine: approach.name };
               }
