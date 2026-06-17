@@ -1,4 +1,5 @@
 import { chromium, firefox, webkit, Browser } from 'playwright';
+import { getPlaywrightProxy } from './proxy.js';
 
 export class BrowserPool {
   private browsers: Map<string, Browser> = new Map();
@@ -57,6 +58,7 @@ export class BrowserPool {
     
     const launchOptions = {
       headless: this.headless,
+      proxy: getPlaywrightProxy(),
       args: [
         '--no-sandbox',
         '--disable-blink-features=AutomationControlled',

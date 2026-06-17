@@ -4,6 +4,7 @@ import { Page } from 'playwright';
 import { ContentExtractionOptions, SearchResult } from './types.js';
 import { cleanText, getWordCount, getContentPreview, generateTimestamp, isPdfUrl } from './utils.js';
 import { BrowserPool } from './browser-pool.js';
+import { axiosProxyConfig } from './proxy.js';
 
 export class EnhancedContentExtractor {
   private readonly defaultTimeout: number;
@@ -64,6 +65,7 @@ export class EnhancedContentExtractor {
     const { url, timeout = this.defaultTimeout, maxContentLength = this.maxContentLength } = options;
     
     const response = await axios.get(url, {
+      ...axiosProxyConfig(),
       headers: this.getRandomHeaders(),
       timeout,
       // Remove maxContentLength from axios config - handle truncation manually
