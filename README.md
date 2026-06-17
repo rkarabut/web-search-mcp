@@ -146,7 +146,30 @@ The server supports several environment variables for configuration:
 - **`ENABLE_RELEVANCE_CHECKING`**: Enable/disable search result quality validation (default: true)
 - **`RELEVANCE_THRESHOLD`**: Minimum quality score for search results (0.0-1.0, default: 0.3)
 - **`FORCE_MULTI_ENGINE_SEARCH`**: Try all search engines and return best results (default: false)
+- **`WEB_SEARCH_AXIOS_ONLY`**: Skip the Playwright (Bing/Brave) engines and use only the axios DuckDuckGo path; also disables the content extractor's headless-browser fallback (default: false)
 - **`DEBUG_BROWSER_LIFECYCLE`**: Enable detailed browser lifecycle logging for debugging (default: false)
+
+### Axios-only mode (no browsers)
+
+Set `WEB_SEARCH_AXIOS_ONLY=true` to run without launching any browser:
+
+```json
+{
+  "mcpServers": {
+    "web-search": {
+      "command": "node",
+      "args": ["/path/to/web-search-mcp/dist/index.js"],
+      "env": {
+        "WEB_SEARCH_AXIOS_ONLY": "true"
+      }
+    }
+  }
+}
+```
+
+This makes the server fast and lightweight (~130 MB RSS, sub-second calls) and removes the Playwright browser dependency entirely — useful for constrained or headless environments, and for `get-single-web-page-content`, which works reliably over plain HTTP.
+
+**Caveat:** in this mode all searches go through DuckDuckGo's HTML endpoint, which rate-limits non-browser clients (it may return an anti-bot challenge instead of results). `full-web-search` and `get-web-search-summaries` will therefore be faster but less reliable and may return no results when throttled. For fast *and* reliable search, use the default browser engines or a dedicated search API.
 
 ## Troubleshooting
 
