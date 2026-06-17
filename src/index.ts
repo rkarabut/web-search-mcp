@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './log-redirect.js'; // must be first: routes console.log -> stderr (keeps stdout clean for JSON-RPC)
 console.log('Web Search MCP Server starting...');
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
