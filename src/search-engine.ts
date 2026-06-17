@@ -4,6 +4,7 @@ import { SearchOptions, SearchResult, SearchResultWithMetadata } from './types.j
 import { generateTimestamp, sanitizeQuery } from './utils.js';
 import { RateLimiter } from './rate-limiter.js';
 import { BrowserPool } from './browser-pool.js';
+import { getPlaywrightProxy, axiosProxyConfig } from './proxy.js';
 
 export class SearchEngine {
   private readonly rateLimiter: RateLimiter;
@@ -143,6 +144,7 @@ export class SearchEngine {
         const { firefox } = await import('playwright');
         browser = await firefox.launch({
           headless: process.env.BROWSER_HEADLESS !== 'false',
+          proxy: getPlaywrightProxy(),
           args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -243,6 +245,7 @@ export class SearchEngine {
         const startTime = Date.now();
         browser = await chromium.launch({
           headless: process.env.BROWSER_HEADLESS !== 'false',
+          proxy: getPlaywrightProxy(),
           args: [
             '--no-sandbox',
             '--disable-blink-features=AutomationControlled',
@@ -519,6 +522,7 @@ export class SearchEngine {
     
     try {
       const response = await axios.get('https://html.duckduckgo.com/html/', {
+        ...axiosProxyConfig(),
         params: {
           q: query,
         },

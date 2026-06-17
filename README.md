@@ -147,6 +147,7 @@ The server supports several environment variables for configuration:
 - **`RELEVANCE_THRESHOLD`**: Minimum quality score for search results (0.0-1.0, default: 0.3)
 - **`FORCE_MULTI_ENGINE_SEARCH`**: Try all search engines and return best results (default: false)
 - **`SEARCH_ENGINE_ORDER`**: Comma-separated engine precedence (keys: `bing`, `brave`, `duckduckgo`; default: `bing,brave,duckduckgo`). Unknown keys are ignored; e.g. `brave,duckduckgo` skips Bing.
+- **`SEARCH_PROXY`**: Route all outbound traffic through a proxy, e.g. `http://user:pass@host:port`. Applies to both the Playwright engines (Bing/Brave) and the axios paths (DuckDuckGo + page-content extraction), for both HTTP and HTTPS targets. Leave empty for direct connection.
 - **`DEBUG_BROWSER_LIFECYCLE`**: Enable detailed browser lifecycle logging for debugging (default: false)
 
 ## Troubleshooting
