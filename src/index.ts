@@ -519,6 +519,28 @@ class WebSearchMCPServer {
     console.log('Web Search MCP Server started');
     console.log('Server timestamp:', new Date().toISOString());
     console.log('Waiting for MCP messages...');
+
+    // Clean up browsers when the client disconnects (stdin EOF). Without this,
+    // pooled browser processes are orphaned on a normal client disconnect — only
+    // SIGINT/SIGTERM were handled before.
+    let shuttingDown = false;
+    const cleanupAndExit = async (reason: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.error(`[MCP] ${reason} — closing browsers and exiting`);
+      try {
+        await Promise.all([
+          this.contentExtractor.closeAll(),
+          this.searchEngine.closeAll(),
+        ]);
+      } catch (e) {
+        console.error('[MCP] Error during shutdown cleanup:', e);
+      }
+      process.exit(0);
+    };
+    process.stdin.on('end', () => void cleanupAndExit('stdin closed'));
+    process.stdin.on('close', () => void cleanupAndExit('stdin closed'));
+    transport.onclose = () => void cleanupAndExit('transport closed');
   }
 }
 
